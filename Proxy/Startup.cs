@@ -48,8 +48,6 @@ namespace Proxy
 
             //立即绑定，并且监控数据变化
             proxyConfig.CurrentValue.ToString();
-            log.LogInformation("IsAllowAll:{0},ProxiedAddresses:{1}", ProxyConfig.IsAllowAll.ToString(),
-ProxyConfig.ProxiedAddresses == null ? "null" : string.Join("; ", ProxyConfig.ProxiedAddresses.Select(p => p.Key + ":" + p.Value)));
 
             #endregion
 
@@ -85,7 +83,9 @@ ProxyConfig.ProxiedAddresses == null ? "null" : string.Join("; ", ProxyConfig.Pr
                 }
                 catch (Exception ex)
                 {
-                    log.LogError(ex, "getProxiedAddress is error!");
+                    log.LogError(ex, "getProxiedAddress is error! IsAllowAll:{0}; ProxiedAddresses:{1}; c.Request.Host.Host:{2}", ProxyConfig.IsAllowAll.ToString(),
+ProxyConfig.ProxiedAddresses == null ? "null" : string.Join("; ", ProxyConfig.ProxiedAddresses.Select(p => p.Key + ":" + p.Value)),
+c.Request.Host.Host);
                 }
 
                 c.Items["write"] = "Hello!";
