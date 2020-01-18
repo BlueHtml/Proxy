@@ -1,11 +1,14 @@
 using AspNetCore.Proxy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Proxy
@@ -47,26 +50,73 @@ namespace Proxy
 
             #endregion
 
-            app.RunProxy(ProxyConfig.ProxiedAddress, new ProxyOptions
+            app.RunProxy(c =>
+            {
+                string[] arr = c.Request.Host.Host.Split('.');
+                if (arr.Length > 2)
+                {
+                    arr = arr[0..^2];
+                    string first = arr.Length < 3 ? "www." : string.Empty;
+                    string last = string.Join('.', arr);
+
+                    if (ProxyConfig.IsAllowAll && arr.Length > 1)
+                    {
+                        return $"https://{first}{last}";
+                    }
+
+                    foreach (var proxyConfig in ProxyConfig.ProxiedAddresses)
+                    {
+                        if (proxyConfig.Key.Equals(last, StringComparison.OrdinalIgnoreCase)
+                        || proxyConfig.Value.Equals(last, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (proxyConfig.Value.Count(p => p == '.') > 1)
+                            {
+                                first = string.Empty;
+                            }
+                            return $"https://{first}{proxyConfig.Value}";
+                        }
+                    }
+                }
+
+                c.Items["write"] = "Hello!";
+                return "https://www.qq.com";
+            },
+            new ProxyOptions
             {
                 ShouldAddForwardedHeaders = false,//禁止添加跳转和源站标头
-                BeforeSend = ((c, hrm) =>
+                Intercept = async c =>
+                 {
+                     if (c.Items.TryGetValue("write", out object write))
+                     {
+                         await c.Response.WriteAsync(write as string);
+                         return true;
+                     }
+                     return false;
+                 },
+                BeforeSend = (c, hrm) =>
                 {
                     //替换
                     if (hrm.Headers.Referrer != null)
                     {
-                        hrm.Headers.Referrer = new Uri(hrm.Headers.Referrer.ToString().Replace(c.Request.IsHttps ? "https://" : "http://" + c.Request.Headers["Host"], ProxyConfig.ProxiedAddress, StringComparison.OrdinalIgnoreCase));
+                        //http://so.com.17x.cn/s?ie=utf-8&fr=none&src=360sou_newhome&q=cc
+                        //https://so.com/s?ie=utf-8&fr=none&src=360sou_newhome&q=cc
+                        hrm.Headers.Referrer = new Uri(hrm.Headers.Referrer.ToString().Replace(
+                            c.Request.IsHttps ? "https://" : "http://" + c.Request.Host.Value,
+                           "https://" + hrm.Headers.Host,
+                            StringComparison.OrdinalIgnoreCase));
                     }
-                    hrm.RequestUri = new Uri(hrm.RequestUri.ToString() + c.Request.QueryString.ToUriComponent());
 
+                    hrm.RequestUri = new Uri(hrm.RequestUri + c.Request.QueryString.ToUriComponent());
                     return Task.CompletedTask;
-                })
-            });
+                },
+                HandleFailure = (c, ex) => c.Response.WriteAsync("Exception!")
+            }); ;
         }
     }
 
     public class ProxyConfig
     {
-        public static string ProxiedAddress { get; set; }
+        public static bool IsAllowAll { get; set; }
+        public static Dictionary<string, string> ProxiedAddresses { get; set; }
     }
 }
