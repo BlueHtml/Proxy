@@ -67,7 +67,7 @@ namespace Proxy
                             return $"https://{first}{last}";
                         }
 
-                        foreach (var proxyConfig in ProxyConfig.ProxiedAddresses)
+                        foreach (var proxyConfig in ProxyConfig.Proxy)
                         {
                             if (proxyConfig.Key.Equals(last, StringComparison.OrdinalIgnoreCase)
                             || proxyConfig.Value.Equals(last, StringComparison.OrdinalIgnoreCase))
@@ -84,8 +84,8 @@ namespace Proxy
                 catch (Exception ex)
                 {
                     log.LogError(ex, "getProxiedAddress is error! IsAllowAll:{0}; ProxiedAddresses:{1}; c.Request.Host.Host:{2}; ProxiedAddresses:{3}", ProxyConfig.IsAllowAll.ToString(),
-ProxyConfig.ProxiedAddresses == null ? "null" : string.Join("; ", ProxyConfig.ProxiedAddresses.Select(p => p.Key + ":" + p.Value)),
-c.Request.Host.Host, Configuration.GetValue<string>("ProxiedAddresses"));
+ProxyConfig.Proxy == null ? "null" : string.Join("; ", ProxyConfig.Proxy.Select(p => p.Key + ":" + p.Value)),
+c.Request.Host.Host, Configuration.GetValue<string>("Proxy"));
                 }
 
                 c.Items["write"] = "Hello!";
@@ -119,6 +119,13 @@ c.Request.Host.Host, Configuration.GetValue<string>("ProxiedAddresses"));
                     hrm.RequestUri = new Uri(hrm.RequestUri + c.Request.QueryString.ToUriComponent());
                     return Task.CompletedTask;
                 },
+                //AfterReceive = (c, hres) =>
+                //{
+                //    if (hres.Headers.Location!=null)
+                //    {
+                //        hres.Headers.Location = hres.Headers.Location.ToString().Replace( hres.Headers.Location.Host+ c.Request.Host
+                //    }
+                //},
                 HandleFailure = (c, ex) => c.Response.WriteAsync("Exception!")
             }); ;
         }
@@ -127,6 +134,6 @@ c.Request.Host.Host, Configuration.GetValue<string>("ProxiedAddresses"));
     public class ProxyConfig
     {
         public static bool IsAllowAll { get; set; }
-        public static Dictionary<string, string> ProxiedAddresses { get; set; }
+        public static Dictionary<string, string> Proxy { get; set; }
     }
 }
