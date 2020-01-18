@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
@@ -36,7 +37,7 @@ namespace Proxy
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IOptionsMonitor<ProxyConfig> proxyConfig)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IOptionsMonitor<ProxyConfig> proxyConfig, ILogger<Startup> log)
         {
             if (env.IsDevelopment())
             {
@@ -52,30 +53,37 @@ namespace Proxy
 
             app.RunProxy(c =>
             {
-                string[] arr = c.Request.Host.Host.Split('.');
-                if (arr.Length > 2)
+                try
                 {
-                    arr = arr[0..^2];
-                    string first = arr.Length < 3 ? "www." : string.Empty;
-                    string last = string.Join('.', arr);
-
-                    if (ProxyConfig.IsAllowAll && arr.Length > 1)
+                    string[] arr = c.Request.Host.Host.Split('.');
+                    if (arr.Length > 2)
                     {
-                        return $"https://{first}{last}";
-                    }
+                        arr = arr[0..^2];
+                        string first = arr.Length < 3 ? "www." : string.Empty;
+                        string last = string.Join('.', arr);
 
-                    foreach (var proxyConfig in ProxyConfig.ProxiedAddresses)
-                    {
-                        if (proxyConfig.Key.Equals(last, StringComparison.OrdinalIgnoreCase)
-                        || proxyConfig.Value.Equals(last, StringComparison.OrdinalIgnoreCase))
+                        if (ProxyConfig.IsAllowAll && arr.Length > 1)
                         {
-                            if (proxyConfig.Value.Count(p => p == '.') > 1)
+                            return $"https://{first}{last}";
+                        }
+
+                        foreach (var proxyConfig in ProxyConfig.ProxiedAddresses)
+                        {
+                            if (proxyConfig.Key.Equals(last, StringComparison.OrdinalIgnoreCase)
+                            || proxyConfig.Value.Equals(last, StringComparison.OrdinalIgnoreCase))
                             {
-                                first = string.Empty;
+                                if (proxyConfig.Value.Count(p => p == '.') > 1)
+                                {
+                                    first = string.Empty;
+                                }
+                                return $"https://{first}{proxyConfig.Value}";
                             }
-                            return $"https://{first}{proxyConfig.Value}";
                         }
                     }
+                }
+                catch (Exception ex)
+                {
+                    log.LogError(ex, "解析代理地址时出现异常");
                 }
 
                 c.Items["write"] = "Hello!";
