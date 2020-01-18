@@ -83,9 +83,9 @@ namespace Proxy
                 }
                 catch (Exception ex)
                 {
-                    log.LogError(ex, "getProxiedAddress is error! IsAllowAll:{0}; ProxiedAddresses:{1}; c.Request.Host.Host:{2}", ProxyConfig.IsAllowAll.ToString(),
+                    log.LogError(ex, "getProxiedAddress is error! IsAllowAll:{0}; ProxiedAddresses:{1}; c.Request.Host.Host:{2}; ProxiedAddresses:{3}", ProxyConfig.IsAllowAll.ToString(),
 ProxyConfig.ProxiedAddresses == null ? "null" : string.Join("; ", ProxyConfig.ProxiedAddresses.Select(p => p.Key + ":" + p.Value)),
-c.Request.Host.Host);
+c.Request.Host.Host, Configuration.GetSection("ProxiedAddresses"));
                 }
 
                 c.Items["write"] = "Hello!";
